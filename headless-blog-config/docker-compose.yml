@@ -1,0 +1,85 @@
+version: '3'
+services:
+  blog-cms-strapi:
+    container_name: blog-cms-strapi
+    build: .
+    image: blog-cms-strapi:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_CLIENT: ${DATABASE_CLIENT}
+      DATABASE_HOST: blog-cms-strapiDB
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PORT: ${DATABASE_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      NODE_ENV: ${NODE_ENV}
+    volumes:
+      - ./config:/opt/app/config
+      - ./src:/opt/app/src
+      - ./package.json:/opt/package.json
+      - ./package-lock.json:/opt/package-lock.json
+
+      - ./.env:/opt/app/.env
+      - ./public/uploads:/opt/app/public/uploads
+    ports:
+      - '1337:1337'
+    networks:
+      - blog-cms-strapi
+    depends_on:
+      - blog-cms-strapiDB
+      
+  blog-cms-strapiDB:
+    container_name: blog-cms-strapiDB
+    platform: linux/amd64 #for platform error on Apple M1 chips
+    restart: unless-stopped
+    env_file: .env
+    image: postgres:14.5-alpine
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      - blog-cms-strapi-data:/var/lib/postgresql/data/ #using a volume
+      #- ./data:/var/lib/postgresql/data/ # if you want to use a bind folder
+
+    ports:
+      - '5432:5432'
+    networks:
+      - blog-cms-strapi
+      
+  blog-cms-strapiAdminer:
+    container_name: blog-cms-strapiAdminer
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - '9090:8080'
+    environment:
+      - ADMINER_DEFAULT_SERVER=blog-cms-strapiDB
+    networks:
+      - blog-cms-strapi
+    depends_on:
+      - blog-cms-strapiDB
+
+  headless-blog-nextjs:
+    container_name: headless-cms-blog
+    build: .
+    image: headless-cms-blog:v1
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NEXT_PUBLIC_API_TOKEN=bd309352adbf21793a38df8f1f09e2d1e6ac689038d5168ed28f68d63fd70b7eb0044f91922cf4a811e92bd3b771a319d1982541274c44771524a486d640e1c26a55aae22a80579b43e1c54120ba3fae4c1672440c486f8ce25c65d0b944b2bff916f94fa7dc772307c252d74de3a13003df1dac584a369bc36a8bff4f0b7c5c
+      NEXT_PUBLIC_API_URL=http://blog-cms-strapi:1337
+    networks:
+      - blog-cms-strapi
+
+
+volumes:
+  blog-cms-strapi-data:
+
+networks:
+  blog-cms-strapi:
+    name: Blog-cms-strapi
+    driver: bridge
